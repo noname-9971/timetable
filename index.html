@@ -28,7 +28,7 @@
     --c4:#a9b4f2; --c4i:#000;  --c5:#d9a9f0; --c5i:#000;
     --c6:#d8d8d8; --c6i:#000;  --c7:#8f8fd8; --c7i:#000;
     --c8:#f5a8cf; --c8i:#000;  --c9:#86d4c2; --c9i:#000;
-    --c10:#d6d6d6; --c10i:#6a6a6a; --c11:#ebebeb; --c11i:#7a7a7a;
+    --c10:#d0d0d0; --c10i:#000; --c11:#e4e4e4; --c11i:#000;
   }
   @media (min-width:600px){ :root{--rh:17px;--tw:32px} }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -98,9 +98,6 @@
   .dcol .midline{position:absolute;left:0;right:0;border-top:1px dashed #000;opacity:.5;pointer-events:none}
   .blk{position:absolute;left:1px;right:1px;border:1px solid #000;padding:1px 2px;font-size:10.5px;line-height:1.15;
     overflow:hidden;word-break:keep-all;overflow-wrap:anywhere;z-index:2;box-shadow:inset 1px 1px rgba(255,255,255,.6)}
-  .blk.muted{border-color:#a8a8a8;box-shadow:none;font-weight:400}
-  .blk.muted b{font-weight:400}
-  .blk.muted .bt{display:none}
   .blk .bt{white-space:nowrap;overflow:hidden}
   .blk.L{right:50%;left:0}
   .blk.R{left:50%;right:0}
@@ -175,6 +172,11 @@
   .sw{width:28px;height:28px;border:1px solid #000;cursor:pointer;border-radius:0;outline:2px solid transparent;outline-offset:1px}
   .sw.on{outline:2px dotted #000}
   .rng{display:flex;align-items:center;gap:6px}
+  .wheel{position:relative;display:inline-block;flex:none;overflow:hidden}
+  .wheel input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
+  .actrow{display:flex;align-items:center;gap:10px;padding:6px 8px;background:var(--bg);border-bottom:1px dotted #a0a0a0}
+  .actrow .an{flex:1;font-size:14px}
+  #actList{box-shadow:var(--field);padding:2px;background:var(--bg)}
   .rng select{flex:1}
   .acts{display:flex;gap:8px;margin-top:14px}
   .acts .btn{flex:1;padding:8px}
@@ -336,6 +338,7 @@
     <div id="memoList"></div>
   </div>
   <div class="bar">
+    <button class="btn" id="actBtn">활동</button>
     <button class="btn" id="tplBtn">템플릿</button>
     <button class="btn" id="copyBtn">텍스트로 복사</button>
     <button class="btn" id="backupBtn">백업 복사</button>
@@ -350,7 +353,7 @@
   <div class="clock" id="clock"></div></div>
 <div class="smenu" id="smenu">
   <button data-go="week">주간 시간표</button><button data-go="day">하루 시간표</button><button data-go="month">월간 보고서</button><button data-go="goals">목표</button>
-  <hr><button data-go="memo">메모 쓰기</button><button data-go="backup">백업 복사</button><button data-go="restore">백업 불러오기</button>
+  <hr><button data-go="acts">활동 관리</button><button data-go="memo">메모 쓰기</button><button data-go="backup">백업 복사</button><button data-go="restore">백업 불러오기</button>
 </div>
 
 <div class="scrim" id="scrim"></div>
@@ -395,6 +398,15 @@
   <div class="acts"><button class="btn" data-close>닫기</button></div>
 </div>
 
+<div class="sheet" id="actSheet">
+  <h2>활동 관리</h2>
+  <div id="actList"></div>
+  <div class="lbl">새 활동</div>
+  <div class="rng"><input class="inp" id="actName" placeholder="예: 독서, 영어, 청소" autocomplete="off"><span id="actWheel"></span></div>
+  <div class="acts" style="margin-top:10px"><button class="btn pri" id="actAdd">추가</button></div>
+  <div class="acts"><button class="btn" data-close>닫기</button></div>
+</div>
+
 <div class="sheet" id="restoreSheet">
   <h2>백업 불러오기</h2>
   <textarea class="inp" id="restoreTxt" rows="5" style="resize:vertical"></textarea>
@@ -407,10 +419,10 @@
 const DAYS=["월","화","수","목","금","토","일"];
 const LS2="weekly-timetable-v2", LS1="weekly-timetable-v1";
 const NC=10;
-const FIXED={"업무":4,"공부":2,"창작":5,"운동":0,"게임":1,"식사":9,"배달":8,"취침":10,"이동":11};
+const FIXED={"업무":4,"공부":3,"창작":5,"운동":0,"게임":1,"식사":9,"배달":8,"취침":10,"이동":11};
 const RENAME={"점심":"식사","저녁":"식사","아침":"식사","출근":"이동","퇴근":"이동","웹소설":"창작","블로그":"창작"};
 const DEFAULTS=["업무","공부","창작","운동","게임","배달","식사","이동","취침"];
-let S={v:2,weeks:{},colors:{},templates:{},goals:[],miles:[],memos:[],seed:0};
+let S={v:2,weeks:{},colors:{},templates:{},goals:[],miles:[],memos:[],seed:0,acts:[]};
 let mon="", selDay=null;
 let wk="", view="week", mode="plan", dayIdx=0, edit=null, color=0;
 const $=id=>document.getElementById(id);
@@ -446,16 +458,20 @@ function blocks(cells,d){
   return out;
 }
 function hash(t){let h=0;for(const c of t)h=(h*31+c.charCodeAt(0))|0;return Math.abs(h)}
+const PAL=["#ff9a9a","#ffd27a","#a6e3a1","#9fd6e8","#a9b4f2","#d9a9f0","#d8d8d8","#8f8fd8","#f5a8cf","#86d4c2","#d0d0d0","#e4e4e4"];
+function hexOf(c){return typeof c==="string"?c:PAL[c]||"#cccccc"}
 function colorOf(t){
+  if(S.colors[t]!=null)return S.colors[t];
   if(FIXED[t]!=null)return FIXED[t];
   if(S.colors[t]==null){const used=new Set([...Object.values(S.colors),...Object.values(FIXED)]);let c=-1;
     for(let i=0;i<NC;i++)if(!used.has(i)){c=i;break}
     S.colors[t]=c<0?hash(t)%NC:c;}
   return S.colors[t];
 }
-function cv(c){return `var(--c${c})`} function ci(c){return `var(--c${c}i)`}
+function cv(c){return typeof c==="string"?c:`var(--c${c})`}
+function ci(c){if(typeof c!=="string")return `var(--c${c}i)`;const n=parseInt(c.slice(1),16),r=n>>16,g=(n>>8)&255,b=n&255;return (0.299*r+0.587*g+0.114*b)>140?"#000":"#fff"}
 function names(){
-  const seen=new Set();
+  const seen=new Set(S.acts);
   for(const w of Object.values(S.weeks))for(const l of ["plan","actual"])for(const v of Object.values(w[l]||{}))seen.add(v);
   for(const t of Object.values(S.templates))for(const v of Object.values(t))seen.add(v);
   for(const d of DEFAULTS)seen.add(d);
@@ -487,7 +503,7 @@ function wkLabel(k){const a=parseKey(k),b=dayDate(k,6);
 function blockEl(b,side,full){
   const e=el("div","blk"+(side?" "+side:""));
   e.style.top=`calc(var(--rh) * ${b.s} + 1px)`;e.style.height=`calc(var(--rh) * ${b.e-b.s} - 2px)`;
-  const c=colorOf(b.t);e.style.background=cv(c);e.style.color=ci(c);if(c>=10)e.classList.add("muted");
+  const c=colorOf(b.t);e.style.background=cv(c);e.style.color=ci(c);
   if(full){
     if(b.e-b.s>=2)e.appendChild(el("span","bt",lab(b.s)));
     e.appendChild(el("b",null,b.t));
@@ -659,6 +675,7 @@ document.addEventListener("click",()=>{$("smenu").classList.remove("on");$("star
 document.querySelectorAll("#smenu button").forEach(b=>b.onclick=()=>{const g=b.dataset.go;
   if(TASKN[g]){setView(g);scrollTo(0,0)}
   else if(g==="memo"){$("memoCard").scrollIntoView({behavior:"smooth"});setTimeout(()=>$("memoTxt").focus(),300)}
+  else if(g==="acts")openActs();
   else if(g==="backup")$("backupBtn").click(); else if(g==="restore")$("restoreBtn").click()});document.querySelectorAll("[data-close]").forEach(b=>b.onclick=closeS);
 
 function openEdit(o){
@@ -670,9 +687,9 @@ function openEdit(o){
   const pc=$("presetChips");pc.innerHTML="";
   let list=names();
   if(o.layer==="actual"){const pn=layer(wk,"plan")[k2(o.days[0],o.start)];if(pn)list=[pn,...list.filter(x=>x!==pn)]}
-  for(const t of list){const b=el("button","chip");const i=el("i");const kc=FIXED[t]!=null?FIXED[t]:S.colors[t];
+  for(const t of list){const b=el("button","chip");const i=el("i");const kc=S.colors[t]!=null?S.colors[t]:FIXED[t];
     i.style.background=kc!=null?cv(kc):"var(--line)";b.appendChild(i);b.appendChild(document.createTextNode(t));
-    b.onclick=()=>{$("fName").value=t;if(S.colors[t]!=null)color=S.colors[t];drawColors()};pc.appendChild(b)}
+    b.onclick=()=>{$("fName").value=t;color=colorOf(t);drawColors()};pc.appendChild(b)}
   const fs=$("fStart"),fe=$("fEnd");fs.innerHTML="";fe.innerHTML="";
   for(let s=0;s<48;s++)fs.add(new Option(optLab(s),s));
   for(let s=1;s<=48;s++)fe.add(new Option(s===48?"다음날 06:00":optLab(s),s));
@@ -681,11 +698,14 @@ function openEdit(o){
   fe.onchange=()=>{if(+fe.value<=+fs.value)fs.value=+fe.value-1};
   drawColors();drawDays();openS("editSheet");
 }
-$("fName").addEventListener("input",()=>{const t=$("fName").value.trim();if(S.colors[t]!=null)color=S.colors[t];drawColors()});
+$("fName").addEventListener("input",()=>{const t=$("fName").value.trim();if(S.colors[t]!=null||FIXED[t]!=null){color=colorOf(t);drawColors()}});
 function drawColors(){const cc=$("colorChips");cc.innerHTML="";
-  const fx=FIXED[$("fName").value.trim()]!=null;cc.style.display=fx?"none":"";cc.previousElementSibling.style.display=fx?"none":"";
-  for(let i=0;i<NC;i++){const s=el("button","sw"+(i===color?" on":""));s.style.background=cv(i);s.setAttribute("aria-label","색 "+(i+1));
-    s.onclick=()=>{color=i;drawColors()};cc.appendChild(s)}}
+  for(let i=0;i<12;i++){const s=el("button","sw"+(i===color?" on":""));s.style.background=cv(i);s.setAttribute("aria-label","색 "+(i+1));
+    s.onclick=()=>{color=i;drawColors()};cc.appendChild(s)}
+  cc.appendChild(wheel(hexOf(color),v=>{color=v;drawColors()},typeof color==="string"));}
+function wheel(val,on,sel){const w=el("label","sw wheel"+(sel?" on":""));w.title="직접 고르기";
+  const inp=document.createElement("input");inp.type="color";inp.value=val;inp.oninput=()=>{w.style.background=inp.value};inp.onchange=()=>on(inp.value);
+  w.style.background=sel?val:"conic-gradient(red,yellow,lime,cyan,blue,magenta,red)";w.appendChild(inp);return w}
 function drawDays(){const dc=$("dayChips");dc.innerHTML="";
   DAYS.forEach((n,i)=>{const b=el("button","chip"+(edit.days.has(i)?" on":""),n);b.style.minWidth="40px";b.style.justifyContent="center";
     b.onclick=()=>{edit.days.has(i)?edit.days.delete(i):edit.days.add(i);drawDays()};dc.appendChild(b)})}
@@ -698,13 +718,29 @@ function applyEdit(clear){
   if(!clear&&edit.days.size===0){toast("요일을 하나 이상 골라주세요");return}
   const L=ensure(wk,edit.layer);
   if(edit.orig)for(let x=edit.orig.s;x<edit.orig.e;x++)delete L[k2(edit.orig.d,x)];
-  if(!clear){if(FIXED[name]==null)S.colors[name]=color;for(const d of edit.days)for(let x=s;x<e;x++)L[k2(d,x)]=name}
+  if(!clear){S.colors[name]=color;if(!S.acts.includes(name))S.acts.push(name);for(const d of edit.days)for(let x=s;x<e;x++)L[k2(d,x)]=name}
   else if(!edit.orig)for(const d of edit.days)for(let x=s;x<e;x++)delete L[k2(d,x)];
   closeS();save();render();
 }
 $("saveBtn").onclick=()=>applyEdit(false);
 $("delBtn").onclick=()=>applyEdit(true);
 $("fName").addEventListener("keydown",e=>{if(e.key==="Enter")applyEdit(false)});
+
+/* ---------- activities ---------- */
+let newColor="#ffb07a";
+function openActs(){$("actName").value="";drawActs();openS("actSheet")}
+function drawActs(){
+  const box=$("actList");box.innerHTML="";
+  for(const t of S.acts){const r=el("div","actrow");
+    r.appendChild(wheel(hexOf(colorOf(t)),v=>{S.colors[t]=v;save();render();drawActs()},true));
+    r.appendChild(el("span","an",t));
+    const x=el("button","xbtn","×");x.setAttribute("aria-label",t+" 목록에서 빼기");
+    x.onclick=()=>{S.acts=S.acts.filter(a=>a!==t);save();drawActs()};r.appendChild(x);box.appendChild(r)}
+  const aw=$("actWheel");aw.innerHTML="";aw.appendChild(wheel(newColor,v=>{newColor=v;drawActs()},true));
+}
+$("actAdd").onclick=()=>{const n=$("actName").value.trim().slice(0,30);if(!n){$("actName").focus();toast("활동 이름을 적어주세요");return}
+  if(!S.acts.includes(n))S.acts.push(n);S.colors[n]=newColor;save();render();$("actName").value="";drawActs();toast(`"${n}" 추가`)};
+$("actBtn").onclick=openActs;
 
 /* ---------- templates ---------- */
 let tplSrc=null,tplOpen=null,tplDays=new Set();
@@ -948,6 +984,7 @@ function migrate(){
     const N=lnow();if(!Object.keys(layer(N.wk,"plan")).length)applyWeek(N.wk);
     S.seed=1;save();
   }
+  if(S.seed<2){if(!S.acts.length)S.acts=[...DEFAULTS];if(S.colors["공부"]===2)delete S.colors["공부"];S.seed=2;save()}
 }
 function applyWeek(w){const L=ensure(w,"plan");for(let d=0;d<7;d++){const sp=d<5?([0,2,4].includes(d)?T_A:T_B):T_W;for(const[a,b,n]of sp)for(let s=a;s<b;s++)L[k2(d,s)]=n}}
 function seed(){applyWeek(wk);save();render();return;
@@ -973,15 +1010,16 @@ function toast(m){const t=$("toast");t.textContent=m;t.classList.add("on");clear
 
 /* ---------- storage (this device only) ---------- */
 function clean(o){
-  const out={v:2,weeks:{},colors:{},templates:{},goals:[],miles:[],memos:[],seed:0};
+  const out={v:2,weeks:{},colors:{},templates:{},goals:[],miles:[],memos:[],seed:0,acts:[]};
   const str=v=>typeof v==="string"&&v.length&&v.length<=30;
   const cells=c=>{const r={};if(c&&typeof c==="object")for(const[k,v]of Object.entries(c))if(/^[0-6]-([0-9]|[1-3][0-9]|4[0-7])$/.test(k)&&str(v))r[k]=v;return r};
   if(o&&typeof o==="object"){
     if(o.weeks&&typeof o.weeks==="object")for(const[k,w]of Object.entries(o.weeks))if(/^\d{4}-\d{2}-\d{2}$/.test(k)&&w)out.weeks[k]={plan:cells(w.plan),actual:cells(w.actual)};
-    if(o.colors&&typeof o.colors==="object")for(const[k,v]of Object.entries(o.colors))if(str(k)&&Number.isInteger(v)&&v>=0&&v<NC)out.colors[k]=v;
+    if(o.colors&&typeof o.colors==="object")for(const[k,v]of Object.entries(o.colors))if(str(k)&&((Number.isInteger(v)&&v>=0&&v<12)||(typeof v==="string"&&/^#[0-9a-fA-F]{6}$/.test(v))))out.colors[k]=v;
     if(o.templates&&typeof o.templates==="object")for(const[k,t]of Object.entries(o.templates)){if(!str(k)||!t||typeof t!=="object")continue;
       const r={};for(const[s,v]of Object.entries(t))if(/^([0-9]|[1-3][0-9]|4[0-7])$/.test(s)&&str(v))r[s]=v;out.templates[k]=r}
     out.seed=Number.isInteger(o.seed)?o.seed:0;
+    if(Array.isArray(o.acts))for(const a of o.acts.slice(0,60))if(str(a)&&!out.acts.includes(a))out.acts.push(a);
     const id=v=>typeof v==="string"&&/^[a-z0-9]{1,20}$/.test(v);
     const date=v=>typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v);
     if(Array.isArray(o.goals))for(const g of o.goals.slice(0,50))if(g&&id(g.id)&&str(g.name)&&typeof g.target==="number"&&g.target>0&&g.target<=500&&(g.period==="week"||g.period==="month"))out.goals.push({id:g.id,name:g.name,target:g.target,period:g.period,kind:g.kind==="max"?"max":"min"});
